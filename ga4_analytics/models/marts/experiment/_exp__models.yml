@@ -51,3 +51,98 @@ models:
           - accepted_values:
               arguments:
                 values: ['control', 'treatment']
+
+  - name: exp_user_metrics
+    description: >
+      Experiment metrics per user. One row per eligible user, with the
+      variant, the metrics for the experiment period (January 2021) and the
+      same metrics for the pre-period (December 2020). The pre-period columns
+      are the covariates for CUPED. The Python analysis reads this table.
+      Only about 3% of users have any pre-period activity, so the covariates
+      are 0 for almost everyone.
+
+    columns:
+      - name: user_pseudo_id
+        description: Primary key. The user.
+        data_tests:
+          - unique
+          - not_null
+          # Foreign key: every user here must have an assignment.
+          - relationships:
+              arguments:
+                to: ref('exp_assignments')
+                field: user_pseudo_id
+
+      - name: variant_id
+        description: 0 for control, 1 for treatment.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+      - name: variant
+        description: Readable label for variant_id, control or treatment.
+        data_tests:
+          - not_null
+
+      # Experiment period
+      - name: sessions
+        description: >
+          Number of the user's sessions that started in the experiment
+          period. At least 1, since that is what makes a user eligible.
+        data_tests:
+          - not_null
+
+      - name: converted
+        description: >
+          Primary metric. 1 if the user purchased at least once in the
+          experiment period, else 0. Its average is the conversion rate.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+      - name: revenue_usd
+        description: >
+          Secondary metric. The user's purchase revenue in the experiment
+          period, in US dollars. Its average is revenue per user. Zero for
+          users who did not purchase.
+        data_tests:
+          - not_null
+
+      # Pre-period (CUPED covariates)
+      - name: pre_sessions
+        description: >
+          Number of the user's sessions that started in the pre-period.
+          Zero if the user had no activity then.
+        data_tests:
+          - not_null
+
+      - name: pre_converted
+        description: >
+          1 if the user purchased at least once in the pre-period, else 0.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false
+
+      - name: pre_revenue_usd
+        description: >
+          The user's purchase revenue in the pre-period, in US dollars.
+          Zero if the user had no activity then.
+        data_tests:
+          - not_null
+
+      - name: has_pre_activity
+        description: >
+          True if the user had at least one session in the pre-period.
+          Separates a real zero (active but did not purchase) from a zero
+          that means the user was not there.
+        data_tests:
+          - not_null
