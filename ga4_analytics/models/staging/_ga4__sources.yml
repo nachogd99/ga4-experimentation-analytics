@@ -1,0 +1,27 @@
+version: 2
+
+# Declares the raw GA4 export as a dbt source, so models can refer to it with
+# {{ source('ga4', 'events') }} instead of hard-coding the table path.
+
+sources:
+  - name: ga4
+    description: >
+      Google Analytics 4 BigQuery export for the Google Merchandise Store
+      (obfuscated public sample). Covers 2020-11-01 to 2021-01-31.
+
+    # In BigQuery, dbt's "database" is the GCP project and "schema" is the dataset.
+    # The data lives in Google's public project, not in ours, so both are set
+    # explicitly. Queries are still billed to our own project.
+    database: bigquery-public-data
+    schema: ga4_obfuscated_sample_ecommerce
+
+    tables:
+      - name: events
+        # GA4 exports one table per day (events_20201101, events_20201102, ...).
+        # The * wildcard reads them all as one table and exposes the
+        # _TABLE_SUFFIX pseudo-column ('20201101', ...). Always filter on
+        # _TABLE_SUFFIX to limit the bytes scanned.
+        identifier: events_*
+        description: >
+          One row per event. Event details are nested in the repeated
+          event_params record (key/value pairs).
