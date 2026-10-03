@@ -46,6 +46,7 @@ httptools==0.8.0
 httpx==0.28.1
 idna==3.20
 importlib_metadata==9.0.1
+iniconfig==2.3.0
 interface_meta==2.0.1
 isodate==0.7.2
 itsdangerous==2.2.0
@@ -74,6 +75,7 @@ pathspec==1.0.4
 patsy==1.0.3
 pillow==12.3.0
 platformdirs==4.12.2
+pluggy==1.6.0
 proto-plus==1.29.0
 protobuf==6.33.6
 psutil==7.2.2
@@ -85,6 +87,8 @@ pydantic==2.13.5
 pydantic_core==2.46.5
 pydata-google-auth==1.9.1
 pydeck==0.9.3
+Pygments==2.21.0
+pytest==9.1.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.4
 python-multipart==0.0.32
