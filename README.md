@@ -1,19 +1,30 @@
 # GA4 Experimentation & Product Analytics
 
-An analytics project on Google Analytics 4 e-commerce data: a tested dbt
-pipeline on BigQuery that turns raw nested event data into funnel, user and
-retention tables, followed by a simulated A/B test analysed with hand-written
-statistics.
+An analytics project on Google Analytics 4 e-commerce data, in two parts:
 
-**Status:** the product analytics part (pipeline, funnel, retention) is
-complete. The experimentation part is in progress; see [What's next](#whats-next).
+1. **Product analytics.** A tested dbt pipeline on BigQuery that turns raw
+   nested event data into funnel, user and retention tables.
+2. **Experimentation.** A simulated A/B test on that data, analysed with
+   statistics written out by hand and validated with an A/A test and a planted
+   effect.
+
+> **The experiment is simulated on real traffic.** The Google Merchandise Store
+> did not run this test. Users are split by hashing their id and nothing was
+> changed for either group. Any treatment effect shown is injected in Python
+> and labelled as such. The dbt tables always contain real, unmodified data.
 
 ## What this project shows
 
 - Modelling raw GA4 export data in dbt, in three layers: staging, intermediate, marts
 - Flattening GA4's nested `event_params` into usable columns
-- Checking every model against the raw totals, plus 46 automated dbt tests
+- Data quality: 69 dbt tests, and every model reconciled against the raw totals
 - Product analytics: a purchase funnel, weekly cohort retention, a user table
+- Experiment analysis written by hand: a two-proportion z-test, a sample ratio
+  mismatch check, power analysis and CUPED, with 56 tests against statsmodels and scipy
+- Validating the analysis itself: an A/A test across 1,000 splits and a lift of
+  known size, detected as often as the power analysis predicted
+- Reporting results that are not flattering: this experiment can only detect
+  large effects, and CUPED barely helps on this data
 - Keeping BigQuery costs low: the whole pipeline builds for about 3 GB scanned
 
 ## The data
@@ -45,6 +56,9 @@ flowchart LR
     ses --> funnel[fct_funnel]
     ses --> ret[fct_cohort_retention]
     users --> ret
+    ses --> assign[exp_assignments]
+    ses --> metrics[exp_user_metrics]
+    assign --> metrics
 ```
 
 The same lineage as dbt draws it (`dbt docs serve`):
@@ -58,6 +72,8 @@ The same lineage as dbt draws it (`dbt docs serve`):
 | `dim_users` | mart | user | 270,154 |
 | `fct_funnel` | mart | day and device category | 276 |
 | `fct_cohort_retention` | mart | cohort week and weeks since first visit | 91 |
+| `exp_assignments` | mart, experiment | eligible user | 94,788 |
+| `exp_user_metrics` | mart, experiment | eligible user | 94,788 |
 
 What each layer does:
 
@@ -66,13 +82,13 @@ What each layer does:
   is built as a table so nothing downstream rescans the raw data.
 - **Intermediate** rolls events up into sessions: timing, engagement, traffic
   source, and which funnel steps happened.
-- **Marts** are the tables an analyst would query: users, the funnel, and
-  retention.
+- **Marts** are the tables an analyst would query: users, the funnel,
+  retention, and the experiment's assignments and per-user metrics.
 
 Every model and column is documented in YAML next to the SQL, and the SQL is
 commented to explain each non-obvious choice.
 
-## Results
+## Product analytics results
 
 ### Purchase funnel
 
@@ -98,9 +114,8 @@ about one in five item-viewing sessions adds anything.
 | January 2021 | 118,377 | 1,115 | 0.94% |
 
 Conversion in January is about 60% of December's, a plausible drop after the
-holiday season. This matters for the experiment, which runs on January
-traffic: its baseline has to come from January, not from the three-month
-average.
+holiday season. The experiment runs on January traffic, so its baseline comes
+from January and not from the three-month average.
 
 ### Retention
 
@@ -121,11 +136,69 @@ cohorts.
   their first visit. 82% of users have exactly one session in the three months.
 - December cohorts are the largest and retain worst, which fits one-off
   holiday gift shopping.
-
-### Users
-
 - 4,419 of 270,154 users (1.6%) purchased at least once; 775 purchased more
   than once.
+
+## The experiment
+
+The full write-up is in **[docs/experiment_readout.md](docs/experiment_readout.md)**.
+In short:
+
+**Design.** The 94,788 users with a session in January 2021 are split into
+control and treatment by hashing their id with a salt. The primary metric is
+purchase conversion; the secondary metric is revenue per user. December 2020
+is the pre-period for CUPED.
+
+**Result on the real data.** No difference, which is correct since nothing was
+done to the treatment group.
+
+| Metric | Control | Treatment | Difference | p-value |
+|---|---|---|---|---|
+| Conversion | 1.136% | 1.119% | -0.017 points | 0.81 |
+| Revenue per user | $0.585 | $0.625 | +$0.040 | 0.52 |
+
+**Can the analysis be trusted?** Two checks say yes.
+
+- *A/A test.* The users were re-split 1,000 times with no effect present. The
+  test raised a false alarm 4.4% of the time, against an expected 5% and inside
+  the 3.65% to 6.35% range set before running it.
+- *Planted effect.* With a +25% lift injected into treatment, the test detects
+  it (p = 0.0001) and measures it as +24.9%. Across 1,000 simulated experiments
+  per lift size, detection rates match the predicted power:
+
+| Injected lift | Detected | Predicted power |
+|---|---|---|
+| +5% | 11.0% | 12.8% |
+| +10% | 36.7% | 36.1% |
+| +15% | 64.7% | 66.3% |
+| +20% | 89.0% | 88.0% |
+| +25% | 97.5% | 97.2% |
+
+**Two findings that are less flattering, and stated anyway.**
+
+- *The experiment can only detect large effects.* With a 1.13% baseline and
+  about 47,000 users per group, the minimum detectable effect is +17.8%
+  relative. A +10% lift would be missed almost two times in three.
+- *CUPED barely helps here.* Only 3.4% of eligible users were active in
+  December, so the pre-period covariate is zero for almost everyone. CUPED
+  removes at most 1% of the variance. The method works on data with returning
+  users; this store, over this period, mostly has none.
+
+The statistics are in [analysis/stats.py](analysis/stats.py), with each formula
+written out and commented. The only things taken from a library are the normal
+and chi-square distributions.
+
+## The app
+
+A Streamlit app presents the funnel, retention, the experiment and its
+validation. It reads small CSV files committed to this repository, so it runs
+without BigQuery credentials.
+
+![Funnel tab](docs/screenshots/app_funnel.png)
+
+![Experiment tab](docs/screenshots/app_experiment.png)
+
+![Detection rates against predicted power](docs/screenshots/app_validation.png)
 
 ## Design decisions
 
@@ -145,24 +218,34 @@ cohorts.
   out of the cohorts.
 - **The funnel table stores counts, not rates.** Rates are computed after
   summing counts. Averaging daily rates would give a wrong answer.
+- **Assignment is a hash, not a stored random number.** The same user always
+  lands in the same group, the split can be reproduced by anyone, and a
+  different salt gives an independent split for the A/A test.
+- **Thresholds are set before looking.** The sample ratio alert (0.001) and
+  the A/A pass range were fixed in advance, so the results could not shape them.
 
 ## Data quality
 
-- **46 dbt tests**, all passing: a `unique` and `not_null` test on every
-  model's primary key, `not_null` on the columns later steps depend on, an
-  `accepted_values` test on device category, and a `relationships` test that
-  every session's user exists in `dim_users`.
+- **69 dbt tests**, all passing: `unique` and `not_null` on every model's
+  primary key, `not_null` on the columns later steps depend on,
+  `accepted_values` on categories and flags, and `relationships` tests between
+  sessions, users and experiment tables.
 - **Every model reconciles with the one before it.** `stg_events` has the
   same row count, purchase count and revenue as the raw data. The session and
   user tables sum back to the same 4,295,584 events and $362,165.
-- **One retention figure was recounted independently**, straight from the
-  sessions table with plain date ranges, and matched the mart.
+- **56 Python tests** for the statistics and the simulation harness. Each
+  function is compared with statsmodels or scipy, and the power analysis is
+  also checked against a simulation.
 
 ## How to run it
 
-You need Python 3.11, the [gcloud CLI](https://cloud.google.com/sdk/docs/install),
-and a Google Cloud project with BigQuery enabled. The free BigQuery sandbox is
-enough; no billing account is required.
+To see the app only, steps 1 and 7 are enough: it reads files that are already
+in the repository.
+
+You need Python 3.11. For the pipeline you also need the
+[gcloud CLI](https://cloud.google.com/sdk/docs/install) and a Google Cloud
+project with BigQuery enabled. The free BigQuery sandbox is enough; no billing
+account is required.
 
 1. Clone the repository and install the packages:
 
@@ -176,7 +259,8 @@ enough; no billing account is required.
 
    On macOS or Linux, activate with `source venv/bin/activate` instead.
 
-2. Log in to Google Cloud. dbt uses these credentials, so no key file is needed:
+2. Log in to Google Cloud. dbt and the Python scripts use these credentials,
+   so no key file is needed:
 
    ```
    gcloud auth application-default login
@@ -200,33 +284,50 @@ enough; no billing account is required.
          maximum_bytes_billed: 5000000000
    ```
 
-4. Build and test everything:
+4. Build and test the pipeline:
 
    ```
    cd ga4_analytics
    dbt debug
    dbt build
+   cd ..
    ```
 
-   `dbt debug` checks the connection. `dbt build` creates the five tables and
-   runs the 46 tests. A full build scans about 3 GB, well inside BigQuery's
+   `dbt debug` checks the connection. `dbt build` creates the 7 tables and
+   runs the 69 tests. A full build scans about 3 GB, well inside BigQuery's
    free 1 TB per month.
 
-5. Optionally, browse the documentation and lineage graph:
+5. Run the Python tests. These need no BigQuery connection:
 
    ```
-   dbt docs generate
-   dbt docs serve
+   python -m pytest analysis
    ```
+
+6. Optionally, rerun the experiment analysis. Set your project id at the top
+   of `analysis/data.py` first:
+
+   ```
+   python -m analysis.run_aa_test
+   python -m analysis.run_lift_injection
+   python -m analysis.export_app_data
+   ```
+
+7. Start the app:
+
+   ```
+   streamlit run app/app.py
+   ```
+
+To browse the dbt documentation and lineage graph, run `dbt docs generate`
+and then `dbt docs serve` from `ga4_analytics/`.
 
 Tables in the BigQuery sandbox expire after 60 days. Running `dbt build`
 again recreates them.
 
 ## Limitations
 
-These come from the obfuscation of the public dataset, and are worth knowing
-before reading the results as facts about a real store.
-
+- **The experiment is simulated.** It demonstrates and validates an analysis
+  pipeline. It says nothing about any real product change.
 - **Traffic source is unreliable.** 26% of sessions have no source at all, 15%
   are self-referrals from the store's own domain, and some values are
   replaced by `<Other>` or `(data deleted)`. A user's first-touch source,
@@ -237,33 +338,31 @@ before reading the results as facts about a real store.
   the obfuscation than a finding.
 - **A user is a browser.** The dataset has no logged-in user id, so one
   person on two devices counts as two users.
-
-## What's next
-
-The second part of the project is an A/B test analysis. **The experiment is
-simulated on real traffic:** the Google Merchandise Store did not run this
-test. Users are assigned to control and treatment by hashing their id, so the
-assignment is real and reproducible, but any treatment effect is injected in
-Python and stated as such. The dbt tables always contain real, unmodified data.
-
-Planned:
-
-- Hash-based assignment of users active in January 2021, with December 2020
-  as the pre-period
-- An A/A test first, to confirm the pipeline produces false positives at the
-  expected 5% rate
-- Statistics written by hand: power analysis, a two-proportion z-test, a
-  sample ratio mismatch check, and CUPED variance reduction
-- A Streamlit app and a written experiment readout
+- **Revenue is heavy-tailed.** The revenue test relies on the normal
+  approximation; capping extreme values or bootstrapping would be more robust.
 
 ## Repository layout
 
 | Path | Contents |
 |---|---|
 | `ga4_analytics/` | The dbt project: models, tests and documentation |
-| `docs/` | Screenshots and the project backlog |
-| `requirements.txt` | Python packages |
+| `analysis/stats.py` | The statistical functions |
+| `analysis/simulations.py` | The A/A test and lift injection harness |
+| `analysis/data.py` | Loads the dbt tables from BigQuery |
+| `analysis/tests/` | Python tests |
+| `analysis/results/` | Saved results of the A/A test and lift injection |
+| `app/` | The Streamlit app and its data files |
+| `docs/` | The experiment readout, screenshots and the project backlog |
+
+## How this was built
+
+I built this project with Claude Code, an AI coding assistant, working one
+small step at a time. I set the roadmap and the experiment design, reviewed
+each step before it was committed, and had each statistical function explained
+as it was written. `CLAUDE.md` holds the rules the assistant worked under, and
+`docs/backlog.md` records the decisions and deferred items along the way.
 
 ## Stack
 
-BigQuery (sandbox), dbt-core 1.12 with dbt-bigquery, Python 3.11.
+BigQuery (sandbox), dbt-core 1.12 with dbt-bigquery, Python 3.11 (pandas,
+scipy, statsmodels for test comparisons), Streamlit and Altair.
