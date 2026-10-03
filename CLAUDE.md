@@ -82,4 +82,5 @@ The experiment is simulated on real traffic; always state this openly.
 - docs/: experiment_readout.md, screenshots
 
 ## Git
-- Never run git commit or git push. Stop and tell the owner what to commit.
+- Only run git commit or git push when the owner explicitly says "commit"
+  or "push". Otherwise stop and tell the owner what to commit.
