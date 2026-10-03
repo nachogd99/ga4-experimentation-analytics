@@ -9,7 +9,7 @@ Format: - [tag] short description (why it matters, in one line)
 
 - [step 7] Decide how the A/A harness reproduces `FARM_FINGERPRINT` for 1000 salts: run the assignment in BigQuery from Python, or use a farmhash library (not in requirements.txt; results must match `exp_assignments`)
 - [step 7] Choose the injected lift with the minimum detectable effect in mind: with about 47k users per group and a 1.13% baseline, the MDE is 17.8% relative per `minimum_detectable_effect`; power is 36% for a +10% lift, 88% for +20% and 97% for +25% (a smaller injected lift would usually go undetected, which would look like a pipeline failure when it is only low power)
-- [step 8] State in the readout that CUPED barely reduces variance here: only 3.4% of eligible users have December activity, and the December covariates correlate about 0.08 with January conversion and 0.02 with revenue (a reader would otherwise expect CUPED to help)
+- [step 8] State in the readout that CUPED barely reduces variance here: only 3.4% of eligible users have December activity; measured with `cuped_adjust`, the variance removed is 0.6% for conversion with the December purchase flag, 1.0% with December sessions, and 0.04% for revenue, so intervals narrow by 0.5% at most (a reader would otherwise expect CUPED to help)
 - [step 8] Run the README's "How to run it" steps on a fresh clone before the final README (they were written from this machine's setup and never run end to end)
 - [step 8] Rebuild the dbt tables right before creating the cached exports for the app (the tables may have expired by then)
 - [later] Partition `stg_events` by `event_date` if the project moves off the sandbox (not possible now: the sandbox's 60-day partition expiry would drop all 2020-21 partitions)

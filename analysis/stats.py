@@ -8,12 +8,16 @@ distributions from scipy, used to turn a test statistic into a p-value:
     norm.ppf(q)     the value below which a share q of the normal lies
     chi2.sf(x, df)  probability that a chi-square value is greater than x
 
+numpy is used only for basic arithmetic on lists of per-user values: the
+mean, the variance and the covariance.
+
 The tests in analysis/tests/ compare each function against statsmodels or
 scipy.
 """
 
 from math import ceil, sqrt
 
+import numpy as np
 from scipy.stats import chi2, norm
 
 
@@ -287,3 +291,127 @@ def minimum_detectable_effect(baseline_rate, users_per_group, alpha=0.05, power=
             lift_high = lift_middle  # enough power: the answer is this or lower
 
     return lift_high
+
+
+# ---------------------------------------------------------------------------
+# Metrics that are amounts (revenue per user), and CUPED
+# ---------------------------------------------------------------------------
+
+
+def difference_in_means_test(values_control, values_treatment, alpha=0.05):
+    """Test whether two groups have different means.
+
+    Answers the same question as two_proportion_ztest, for a metric that is
+    an amount (such as revenue per user) and not a yes/no outcome.
+
+    values_*: one value per user in each group, e.g. each user's revenue
+    alpha:    significance level. 0.05 gives a 95% confidence interval.
+
+    Returns a dictionary with the means, the difference, the z-score, the
+    p-value and the confidence interval for the difference.
+    """
+    values_control = np.asarray(values_control, dtype=float)
+    values_treatment = np.asarray(values_treatment, dtype=float)
+    if len(values_control) < 2 or len(values_treatment) < 2:
+        raise ValueError("each group needs at least two users")
+
+    mean_control = values_control.mean()
+    mean_treatment = values_treatment.mean()
+    difference = mean_treatment - mean_control
+
+    # For a yes/no outcome the variance follows from the rate: p * (1 - p).
+    # For an amount there is no such shortcut, so measure how spread out the
+    # values are in each group. ddof=1 divides by n - 1 instead of n, the
+    # standard correction when a variance is estimated from a sample.
+    variance_control = values_control.var(ddof=1)
+    variance_treatment = values_treatment.var(ddof=1)
+
+    # Standard error of the difference: the variance of each group's mean is
+    # its variance divided by its size, and the two add up.
+    standard_error = sqrt(
+        variance_control / len(values_control)
+        + variance_treatment / len(values_treatment)
+    )
+    if standard_error == 0:
+        raise ValueError("no variation: every user has the same value")
+
+    # From here on it is the same as two_proportion_ztest.
+    z_score = difference / standard_error
+    p_value = float(2 * norm.sf(abs(z_score)))
+
+    z_critical = float(norm.ppf(1 - alpha / 2))
+    ci_low = difference - z_critical * standard_error
+    ci_high = difference + z_critical * standard_error
+
+    return {
+        "mean_control": float(mean_control),
+        "mean_treatment": float(mean_treatment),
+        "difference": float(difference),
+        "relative_lift": float(difference / mean_control) if mean_control != 0 else None,
+        "standard_error": standard_error,
+        "z_score": float(z_score),
+        "p_value": p_value,
+        "ci_low": float(ci_low),
+        "ci_high": float(ci_high),
+        "significant": p_value < alpha,
+    }
+
+
+def cuped_adjust(metric, covariate):
+    """Reduce the noise in a metric using data from before the experiment.
+
+    CUPED: Controlled-experiment Using Pre-Experiment Data.
+
+    Part of the spread in a metric has nothing to do with the experiment:
+    some users simply spend more, and already did before it started. If a
+    pre-experiment value (the covariate) predicts the metric, subtracting the
+    predictable part leaves a less noisy metric, so the same difference
+    between the groups is easier to detect.
+
+    metric:    one value per user, measured during the experiment
+    covariate: one value per user, measured BEFORE the experiment, in the
+               same order. Because it is from before the assignment, the
+               treatment cannot have affected it, so removing it cannot
+               create or hide a real effect.
+
+    Pass the users of BOTH groups together. Theta must be computed once on
+    everyone, never separately per group.
+
+    Returns a dictionary with the adjusted values (same order as the input),
+    theta, the correlation and the share of variance removed. Test the
+    adjusted values with difference_in_means_test.
+    """
+    metric = np.asarray(metric, dtype=float)
+    covariate = np.asarray(covariate, dtype=float)
+    if len(metric) != len(covariate):
+        raise ValueError("metric and covariate must have one value per user each")
+
+    covariate_variance = covariate.var(ddof=1)
+    if covariate_variance == 0:
+        raise ValueError("the covariate is the same for every user")
+
+    # Theta: how many units the metric moves, on average, for each unit of
+    # the covariate. It is the slope of the best-fit line of metric against
+    # covariate: their covariance divided by the covariate's variance.
+    # np.cov returns a 2x2 table; position [0, 1] is the covariance.
+    covariance = np.cov(metric, covariate, ddof=1)[0, 1]
+    theta = covariance / covariate_variance
+
+    # Subtract from each user the part of their metric that their covariate
+    # predicted. Using (covariate - its mean) instead of the raw covariate
+    # keeps the overall mean of the metric unchanged.
+    adjusted = metric - theta * (covariate - covariate.mean())
+
+    # The share of variance removed equals the correlation squared.
+    metric_variance = metric.var(ddof=1)
+    if metric_variance == 0:
+        raise ValueError("the metric is the same for every user")
+    correlation = covariance / sqrt(metric_variance * covariate_variance)
+    variance_reduction = 1 - adjusted.var(ddof=1) / metric_variance
+
+    return {
+        "adjusted": adjusted,
+        "theta": float(theta),
+        "correlation": float(correlation),
+        "variance_reduction": float(variance_reduction),
+    }
