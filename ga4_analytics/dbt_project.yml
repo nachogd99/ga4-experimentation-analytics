@@ -50,3 +50,8 @@ models:
       # Also tables: they are small, and every mart reads them. As views, each
       # mart query would rescan stg_events.
       +materialized: table
+    # Config indicated by + and applies to all files under models/marts/
+    marts:
+      # Tables, so the analysis code and the app read finished results
+      # without recomputing them.
+      +materialized: table

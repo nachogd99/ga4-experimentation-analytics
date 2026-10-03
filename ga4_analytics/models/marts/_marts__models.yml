@@ -1,0 +1,99 @@
+version: 2
+
+# Documentation and tests for the mart models.
+
+models:
+  - name: dim_users
+    description: >
+      One row per user (user_pseudo_id), summarising the user's sessions
+      between 2020-11-01 and 2021-01-31. A "user" is a browser: the dataset
+      has no logged-in user id.
+
+    columns:
+      - name: user_pseudo_id
+        description: Primary key. Anonymous id GA4 assigns to a browser.
+        data_tests:
+          - unique
+          - not_null
+
+      # When the user was seen
+      - name: first_session_date
+        description: Date of the user's first session in the data.
+        data_tests:
+          - not_null
+
+      - name: last_session_date
+        description: Date of the user's last session in the data.
+        data_tests:
+          - not_null
+
+      - name: cohort_week
+        description: >
+          First day (a Sunday) of the week of the user's first session.
+          Groups users into weekly cohorts.
+        data_tests:
+          - not_null
+
+      - name: is_new_user
+        description: >
+          True if the user's first ever session is in the data. False for the
+          about 3% of users who already existed before 2020-11-01, whose real
+          first session we cannot see.
+        data_tests:
+          - not_null
+
+      # Activity
+      - name: session_count
+        description: Number of sessions the user had in the data.
+        data_tests:
+          - not_null
+
+      - name: engaged_session_count
+        description: Number of those sessions that GA4 flagged as engaged.
+
+      # Device and location
+      - name: first_device_category
+        description: >
+          Device type (desktop, mobile or tablet) of the user's first
+          session. A small share of users appear with more than one.
+
+      - name: country
+        description: Country of the user, based on IP address.
+
+      # Acquisition
+      - name: first_touch_source
+        description: >
+          Traffic source that first brought the user, taken from the user's
+          earliest event. GA4 means this to be constant per user, but in
+          this obfuscated dataset it differs between events for about 15% of
+          users, so treat channel comparisons with care.
+
+      - name: first_touch_medium
+        description: >
+          Medium that first brought the user, from the same event as
+          first_touch_source.
+
+      - name: first_touch_campaign
+        description: >
+          Campaign that first brought the user, from the same event as
+          first_touch_source.
+
+      # Purchases
+      - name: purchase_count
+        description: >
+          Number of purchase events by the user. A purchase is an event named
+          'purchase'.
+        data_tests:
+          - not_null
+
+      - name: total_revenue_usd
+        description: >
+          Total purchase revenue of the user in US dollars. Zero for users
+          who never purchased.
+        data_tests:
+          - not_null
+
+      - name: is_purchaser
+        description: True if the user purchased at least once.
+        data_tests:
+          - not_null

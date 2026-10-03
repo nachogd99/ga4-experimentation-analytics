@@ -7,9 +7,6 @@ Format: - [tag] short description (why it matters, in one line)
 
 ## Open
 
-- [step 3] Define a purchase as `event_name = 'purchase'`, not as a non-null `transaction_id` (906 of 5,692 purchase events have no real id, so the id undercounts purchases by about 16%)
-- [step 3] Check whether any mart needs item-level data; if so, add a staging model for the `items` array (`stg_events` does not read `items`)
-- [step 3] If a mart breaks results down by traffic source, state the limits of `session_source`: 26% of sessions have none, 15% are self-referrals from shop.googlemerchandisestore.com, and some values are obfuscated (`<Other>`, `(data deleted)`) (channel comparisons would otherwise look more reliable than they are)
 - [step 3] Decide whether a funnel step requires the earlier steps in the same session, e.g. does add_to_cart count without a view_item (it changes every step-to-step conversion rate in `fct_funnel`)
 - [step 4] README setup section: gcloud application-default login and the `maximum_bytes_billed` profile setting (profiles.yml is not in the repo, so a fresh clone has no byte cap)
 - [step 4] README: say that sandbox tables expire after 60 days and `dbt run` rebuilds them (`stg_events` built 2026-10-03 expires 2026-12-02)
@@ -28,3 +25,6 @@ Format: - [tag] short description (why it matters, in one line)
 
 - [step 2] Decide how `is_session_engaged` rolls up to a session. Done in `int_sessions`: `is_engaged` is true if any event in the session has the flag true, otherwise false (320,096 of 360,129 sessions engaged).
 - [step 2] Take session source/medium/campaign from the first non-null event in the session. Done in `int_sessions`: all three come from the earliest event that has any of them; 94,553 sessions have none and stay null.
+- [step 3] Define a purchase as `event_name = 'purchase'`, not as a non-null `transaction_id`. Done: `int_sessions` counts purchase events by name and the marts inherit it; `dim_users` totals match raw (5,692 purchases, $362,165).
+- [step 3] Check whether any mart needs item-level data. Dropped: none of `dim_users`, `fct_funnel` or `fct_cohort_retention` needs it, so no staging model for `items`.
+- [step 3] State the limits of traffic source if a mart breaks down by it. Done: `fct_funnel` has no source breakdown; the `dim_users` and `int_sessions` column docs state the missing, self-referral and obfuscated values, and that first-touch source differs between events for about 15% of users.

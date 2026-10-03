@@ -22,6 +22,11 @@ models:
         description: Anonymous id of the user (browser) the session belongs to.
         data_tests:
           - not_null
+          # Foreign key: every session's user must exist in dim_users.
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_pseudo_id
 
       - name: ga_session_id
         description: >
