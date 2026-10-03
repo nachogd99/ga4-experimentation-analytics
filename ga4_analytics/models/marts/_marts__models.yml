@@ -97,3 +97,115 @@ models:
         description: True if the user purchased at least once.
         data_tests:
           - not_null
+
+  - name: fct_funnel
+    description: >
+      Purchase funnel (view_item > add_to_cart > begin_checkout > purchase),
+      one row per day and device category, counting the sessions that reached
+      each step. Steps count in any order: a session counts for a step if the
+      event occurred in it, whether or not the earlier steps did. Stores
+      counts only; to get a rate over several rows, sum the counts first and
+      then divide.
+
+    columns:
+      - name: funnel_key
+        description: >
+          Primary key. session_date and device_category joined with a dash.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: session_date
+        description: Date the sessions started.
+        data_tests:
+          - not_null
+
+      - name: device_category
+        description: Device type of the sessions.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['desktop', 'mobile', 'tablet']
+
+      - name: sessions
+        description: >
+          All sessions on that day and device, whether or not they entered
+          the funnel.
+        data_tests:
+          - not_null
+
+      - name: view_item_sessions
+        description: Sessions with at least one view_item event.
+        data_tests:
+          - not_null
+
+      - name: add_to_cart_sessions
+        description: Sessions with at least one add_to_cart event.
+        data_tests:
+          - not_null
+
+      - name: begin_checkout_sessions
+        description: >
+          Sessions with at least one begin_checkout event. About 46% of
+          these have no add_to_cart in the same session (the cart was filled
+          in an earlier one), so this divided by add_to_cart_sessions is not
+          "the share of cart sessions that went on to checkout".
+        data_tests:
+          - not_null
+
+      - name: purchase_sessions
+        description: Sessions with at least one purchase event.
+        data_tests:
+          - not_null
+
+  - name: fct_cohort_retention
+    description: >
+      Weekly cohort retention. Users are grouped by the week of their first
+      session, and each row says how many of them had a session in a given
+      later week. One row per cohort_week and week_number. Covers new users
+      only (users whose first ever session is in the data) and leaves out
+      2021-01-31, the single-day final week. Later cohorts have fewer rows
+      because less time has passed since they started.
+
+    columns:
+      - name: cohort_retention_key
+        description: >
+          Primary key. cohort_week and week_number joined with a dash.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: cohort_week
+        description: >
+          First day (a Sunday) of the week in which the cohort's users had
+          their first session.
+        data_tests:
+          - not_null
+
+      - name: week_number
+        description: >
+          Weeks since the cohort week. 0 is the cohort's own week, 1 the
+          week after, and so on.
+        data_tests:
+          - not_null
+
+      - name: cohort_size
+        description: >
+          Number of users in the cohort. The same on every row of a cohort.
+        data_tests:
+          - not_null
+
+      - name: active_users
+        description: >
+          Number of the cohort's users with at least one session in that
+          week. Equals cohort_size when week_number is 0.
+        data_tests:
+          - not_null
+
+      - name: retention_rate
+        description: >
+          active_users divided by cohort_size, between 0 and 1. Always 1
+          when week_number is 0.
+        data_tests:
+          - not_null
