@@ -1,0 +1,13 @@
+# Packages the Streamlit app needs, and nothing else.
+#
+# Streamlit Community Cloud installs from the requirements file next to the
+# app's main file, so the deployed app uses this short list instead of the
+# full project list in the repository root (which includes dbt and the
+# BigQuery libraries). The app only reads CSV files committed to the repo.
+#
+# Versions match the root requirements.txt.
+streamlit==1.65.0
+pandas==3.0.6
+numpy==2.4.6
+altair==6.3.0
+scipy==1.17.1
