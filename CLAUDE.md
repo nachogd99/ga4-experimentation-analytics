@@ -44,7 +44,7 @@ Weekend 1, product analytics:
 2. Intermediate: int_sessions (session key = user_pseudo_id + ga_session_id)
 3. Marts: fct_funnel (view_item > add_to_cart > begin_checkout > purchase),
    dim_users, fct_cohort_retention, all with tests and docs
-4. First README draft
+4. First README draft - include results from dbt docs generate and dbt docs serve
 Weekend 2, experimentation:
 5. Simulated experiment: hash-based assignment on user_pseudo_id,
    experiment period Jan 2021, pre-period Dec 2020 (for CUPED)
