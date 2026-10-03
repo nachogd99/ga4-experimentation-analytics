@@ -48,9 +48,9 @@ Weekend 1, product analytics:
 Weekend 2, experimentation:
 5. Simulated experiment: hash-based assignment on user_pseudo_id,
    experiment period Jan 2021, pre-period Dec 2020 (for CUPED)
-6. A/A test first to validate the pipeline, then inject a known lift
-7. analysis/stats.py (owner writes it): power analysis, two-proportion
+6. analysis/stats.py (owner writes it): power analysis, two-proportion
    z-test, SRM check, CUPED
+7. A/A test first to validate the pipeline, then inject a known lift
 8. Streamlit app, experiment_readout.md, final README
 The experiment is simulated on real traffic; always state this openly.
 
