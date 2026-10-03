@@ -45,3 +45,8 @@ models:
       # Tables (not views) so downstream models read our small flattened copy
       # instead of rescanning the raw GA4 data on every query.
       +materialized: table
+    # Config indicated by + and applies to all files under models/intermediate/
+    intermediate:
+      # Also tables: they are small, and every mart reads them. As views, each
+      # mart query would rescan stg_events.
+      +materialized: table

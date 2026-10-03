@@ -7,10 +7,10 @@ Format: - [tag] short description (why it matters, in one line)
 
 ## Open
 
-- [step 2] Decide how `is_session_engaged` rolls up to a session, e.g. max over the session's events (it is null on about 7% of events, which carry no `session_engaged` param)
-- [step 2] Take session source/medium/campaign from the first non-null event in the session (`event_source` etc. are filled on only about 28% of events, so most rows are null)
 - [step 3] Define a purchase as `event_name = 'purchase'`, not as a non-null `transaction_id` (906 of 5,692 purchase events have no real id, so the id undercounts purchases by about 16%)
 - [step 3] Check whether any mart needs item-level data; if so, add a staging model for the `items` array (`stg_events` does not read `items`)
+- [step 3] If a mart breaks results down by traffic source, state the limits of `session_source`: 26% of sessions have none, 15% are self-referrals from shop.googlemerchandisestore.com, and some values are obfuscated (`<Other>`, `(data deleted)`) (channel comparisons would otherwise look more reliable than they are)
+- [step 3] Decide whether a funnel step requires the earlier steps in the same session, e.g. does add_to_cart count without a view_item (it changes every step-to-step conversion rate in `fct_funnel`)
 - [step 4] README setup section: gcloud application-default login and the `maximum_bytes_billed` profile setting (profiles.yml is not in the repo, so a fresh clone has no byte cap)
 - [step 4] README: say that sandbox tables expire after 60 days and `dbt run` rebuilds them (`stg_events` built 2026-10-03 expires 2026-12-02)
 - [step 4] Replace or delete `ga4_analytics/README.md` (still the stock `dbt init` text, which looks unfinished in a portfolio repo)
@@ -25,3 +25,6 @@ Format: - [tag] short description (why it matters, in one line)
 - [later] When regenerating requirements.txt, use `pip freeze | Out-File -Encoding ascii requirements.txt` (PowerShell's `>` writes UTF-16, which git treats as binary)
 
 ## Done or dropped
+
+- [step 2] Decide how `is_session_engaged` rolls up to a session. Done in `int_sessions`: `is_engaged` is true if any event in the session has the flag true, otherwise false (320,096 of 360,129 sessions engaged).
+- [step 2] Take session source/medium/campaign from the first non-null event in the session. Done in `int_sessions`: all three come from the earliest event that has any of them; 94,553 sessions have none and stay null.
