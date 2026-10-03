@@ -12,7 +12,7 @@ The tests in analysis/tests/ compare each function against statsmodels or
 scipy.
 """
 
-from math import sqrt
+from math import ceil, sqrt
 
 from scipy.stats import chi2, norm
 
@@ -159,3 +159,131 @@ def srm_check(users_control, users_treatment, expected_share_control=0.5, alpha=
         "p_value": p_value,
         "srm_detected": p_value < alpha,
     }
+
+
+# ---------------------------------------------------------------------------
+# Power analysis
+#
+# Three functions, one relationship. Power is the chance that the test comes
+# out significant when the treatment really has an effect. It depends on the
+# baseline rate, the size of the effect and the number of users. Given any
+# of them, the functions below solve for the missing one.
+# ---------------------------------------------------------------------------
+
+
+def _treatment_rate(baseline_rate, relative_lift):
+    """Conversion rate of the treatment group for a given relative lift.
+
+    A baseline of 0.01 with a relative lift of 0.20 (+20%) gives 0.012.
+    """
+    if not 0 < baseline_rate < 1:
+        raise ValueError("baseline_rate must be between 0 and 1")
+    treatment_rate = baseline_rate * (1 + relative_lift)
+    if not 0 < treatment_rate < 1:
+        raise ValueError("the lift gives a treatment rate outside 0 to 1")
+    return treatment_rate
+
+
+def power_of_test(baseline_rate, relative_lift, users_per_group, alpha=0.05):
+    """Chance of detecting a given lift with a two-proportion z-test.
+
+    Answers: if the treatment really changed conversion by this much, how
+    often would the experiment come out significant?
+
+    baseline_rate:   conversion rate of the control group, e.g. 0.011
+    relative_lift:   true effect as a share of the baseline, e.g. 0.10 = +10%
+    users_per_group: number of users in each group
+    alpha:           significance level of the test
+
+    Returns the power, a probability between 0 and 1.
+    """
+    if users_per_group <= 0:
+        raise ValueError("users_per_group must be positive")
+    treatment_rate = _treatment_rate(baseline_rate, relative_lift)
+    difference = treatment_rate - baseline_rate
+
+    # Standard error of the difference when the effect is real: each group
+    # has its own rate, so each has its own variance p * (1 - p).
+    standard_error = sqrt(
+        baseline_rate * (1 - baseline_rate) / users_per_group
+        + treatment_rate * (1 - treatment_rate) / users_per_group
+    )
+
+    # How many standard errors the true effect is worth. With no effect the
+    # z-score is centred on 0; with a real effect it is centred here.
+    expected_z = difference / standard_error
+
+    # The test is significant when the z-score lands beyond +/- z_critical
+    # (1.96 for alpha = 0.05).
+    z_critical = norm.ppf(1 - alpha / 2)
+
+    # The z-score varies around expected_z like a standard normal. Power is
+    # the chance that it lands beyond the threshold on either side. The second
+    # term (significant in the wrong direction) is almost always tiny.
+    power = norm.sf(z_critical - expected_z) + norm.cdf(-z_critical - expected_z)
+    return float(power)
+
+
+def required_sample_size(baseline_rate, relative_lift, alpha=0.05, power=0.80):
+    """Users needed in each group to detect a given lift.
+
+    Answers: how big must the experiment be to detect this lift with the
+    desired power?
+
+    Returns the number of users per group, rounded up.
+    """
+    if relative_lift == 0:
+        raise ValueError("a lift of 0 cannot be detected with any sample size")
+    if not 0 < power < 1:
+        raise ValueError("power must be between 0 and 1")
+    treatment_rate = _treatment_rate(baseline_rate, relative_lift)
+    difference = treatment_rate - baseline_rate
+
+    # To be significant, the z-score must clear z_critical. To do so with the
+    # desired probability, its centre must sit z_power beyond that threshold.
+    # For alpha = 0.05 and power = 0.80 these are 1.96 and 0.84.
+    z_critical = norm.ppf(1 - alpha / 2)
+    z_power = norm.ppf(power)
+
+    # So the effect must be worth (z_critical + z_power) standard errors:
+    #     difference / standard_error = z_critical + z_power
+    # The standard error is sqrt(variance_sum / n). Solving for n gives:
+    variance_sum = baseline_rate * (1 - baseline_rate) + treatment_rate * (
+        1 - treatment_rate
+    )
+    users_per_group = (z_critical + z_power) ** 2 * variance_sum / difference**2
+
+    return ceil(users_per_group)
+
+
+def minimum_detectable_effect(baseline_rate, users_per_group, alpha=0.05, power=0.80):
+    """Smallest relative lift the experiment can detect with the desired power.
+
+    Answers: with this many users, how big does a lift have to be before the
+    experiment would usually catch it?
+
+    Returns the lift as a share of the baseline, e.g. 0.17 means +17%.
+    """
+    if not 0 < power < 1:
+        raise ValueError("power must be between 0 and 1")
+
+    # There is no formula to solve for the lift directly, because the lift
+    # also changes the treatment group's variance. So search for it: power
+    # grows with the lift, which lets us halve the range at every step, like
+    # guessing a number with "higher" or "lower".
+    lift_low = 0.0
+    # Largest lift that keeps the treatment rate just below 100%.
+    lift_high = (1 - baseline_rate) / baseline_rate * 0.999
+
+    if power_of_test(baseline_rate, lift_high, users_per_group, alpha) < power:
+        raise ValueError("no lift reaches the desired power with this few users")
+
+    # 60 halvings narrow the range far beyond any precision we need.
+    for _ in range(60):
+        lift_middle = (lift_low + lift_high) / 2
+        if power_of_test(baseline_rate, lift_middle, users_per_group, alpha) < power:
+            lift_low = lift_middle  # not enough power: the answer is higher
+        else:
+            lift_high = lift_middle  # enough power: the answer is this or lower
+
+    return lift_high
