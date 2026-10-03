@@ -1,0 +1,53 @@
+version: 2
+
+# Documentation and tests for the experiment models.
+#
+# The experiment is simulated on real traffic: the store did not run this
+# test. These tables contain real, unmodified data. Any treatment effect is
+# injected later, in Python.
+
+models:
+  - name: exp_assignments
+    description: >
+      Assignment of each eligible user to control or treatment. One row per
+      user. Eligible users are those with at least one session in the
+      experiment period (January 2021). The assignment hashes the user id
+      together with a salt, so it is reproducible and a different salt gives
+      an independent split.
+
+    columns:
+      - name: user_pseudo_id
+        description: Primary key. The user being assigned.
+        data_tests:
+          - unique
+          - not_null
+          # Foreign key: every assigned user must exist in dim_users.
+          - relationships:
+              arguments:
+                to: ref('dim_users')
+                field: user_pseudo_id
+
+      - name: experiment_salt
+        description: >
+          Text appended to the user id before hashing. Set by the
+          experiment_salt variable in dbt_project.yml.
+        data_tests:
+          - not_null
+
+      - name: variant_id
+        description: 0 for control, 1 for treatment.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                # The values are numbers, so do not wrap them in quotes
+                quote: false
+
+      - name: variant
+        description: Readable label for variant_id, control or treatment.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['control', 'treatment']

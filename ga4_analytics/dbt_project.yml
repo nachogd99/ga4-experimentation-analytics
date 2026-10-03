@@ -33,6 +33,19 @@ vars:
   ga4_start_date: '20201101'
   ga4_end_date: '20210131'
 
+  # Simulated experiment (see the Experiment design section of CLAUDE.md).
+  # The salt is appended to the user id before hashing. A different salt
+  # gives a different, independent split of the same users.
+  experiment_salt: 'exp1'
+  # Experiment period: users with a session in it are eligible, and the
+  # metrics are measured over it.
+  experiment_start_date: '2021-01-01'
+  experiment_end_date: '2021-01-31'
+  # Pre-period: the same metrics measured before the experiment, used as
+  # the CUPED covariate.
+  pre_period_start_date: '2020-12-01'
+  pre_period_end_date: '2020-12-31'
+
 # Configuring models
 # Full documentation: https://docs.getdbt.com/docs/configuring-models
 
