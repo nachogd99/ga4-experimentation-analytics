@@ -43,6 +43,53 @@ def load_user_metrics():
     """)
 
 
+def load_funnel():
+    """Load fct_funnel: one row per day and device category."""
+    return _run_query(f"""
+        select
+            session_date,
+            device_category,
+            sessions,
+            view_item_sessions,
+            add_to_cart_sessions,
+            begin_checkout_sessions,
+            purchase_sessions
+        from `{PROJECT}.{DATASET}.fct_funnel`
+        order by session_date, device_category
+    """)
+
+
+def load_cohort_retention():
+    """Load fct_cohort_retention: one row per cohort week and week number."""
+    return _run_query(f"""
+        select
+            cohort_week,
+            week_number,
+            cohort_size,
+            active_users,
+            retention_rate
+        from `{PROJECT}.{DATASET}.fct_cohort_retention`
+        order by cohort_week, week_number
+    """)
+
+
+def load_overview():
+    """Load one row of project totals, computed from dim_users."""
+    return _run_query(f"""
+        select
+            min(first_session_date) as first_date,
+            max(last_session_date) as last_date,
+            count(*) as users,
+            sum(session_count) as sessions,
+            sum(purchase_count) as purchases,
+            round(sum(total_revenue_usd), 2) as revenue_usd,
+            countif(is_purchaser) as purchasers,
+            countif(session_count = 1) as single_session_users,
+            (select sum(event_count) from `{PROJECT}.{DATASET}.int_sessions`) as events
+        from `{PROJECT}.{DATASET}.dim_users`
+    """)
+
+
 def load_aa_totals(number_of_salts=1000):
     """Reassign every user once per salt and return the totals per salt.
 

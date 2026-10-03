@@ -1,0 +1,3 @@
+variant_id,variant,users,conversions,revenue_usd,users_with_pre_activity,conversion_rate,revenue_per_user
+0,control,47087,535,27536.0,1619,0.011361947034213265,0.5847898570730775
+1,treatment,47701,534,29814.0,1587,0.01119473386302174,0.6250183434309553
