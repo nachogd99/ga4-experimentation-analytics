@@ -1,0 +1,141 @@
+version: 2
+
+# Documentation and tests for the intermediate models.
+
+models:
+  - name: int_sessions
+    description: >
+      One row per session, rolled up from stg_events. Holds when the session
+      happened, how engaged it was, where it came from, and which funnel
+      steps occurred in it. The marts are built from this table.
+
+    columns:
+      # Keys
+      - name: session_key
+        description: >
+          Primary key. user_pseudo_id and ga_session_id joined with a dash.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: user_pseudo_id
+        description: Anonymous id of the user (browser) the session belongs to.
+        data_tests:
+          - not_null
+
+      - name: ga_session_id
+        description: >
+          GA4 session id. Unique only within a user, so use session_key to
+          identify a session.
+
+      - name: ga_session_number
+        description: >
+          Which session this is for the user, counting from 1. A value of 1
+          means the user's first session.
+
+      # Timing
+      - name: session_date
+        description: >
+          Date of the session's first event. A few sessions run past
+          midnight; they are counted on the day they started.
+        data_tests:
+          - not_null
+
+      - name: session_start_at
+        description: Timestamp (UTC) of the session's first event.
+        data_tests:
+          - not_null
+
+      - name: session_end_at
+        description: Timestamp (UTC) of the session's last event.
+
+      - name: session_duration_seconds
+        description: >
+          Seconds between the first and last event. Zero for single-event
+          sessions. Has extreme outliers (the longest is over 4 days), so
+          prefer the median over the mean.
+
+      # Activity and engagement
+      - name: event_count
+        description: Number of events in the session.
+
+      - name: page_view_count
+        description: Number of page_view events in the session.
+
+      - name: is_engaged
+        description: >
+          True if GA4 flagged the session as engaged on any of its events.
+          False otherwise, including sessions where no event carries the flag.
+        data_tests:
+          - not_null
+
+      - name: engagement_time_msec
+        description: >
+          Total milliseconds the site was in focus during the session.
+          Zero when no event reports it.
+
+      # Traffic source
+      - name: session_source
+        description: >
+          Traffic source of the session, taken from its earliest event that
+          carries a source, medium or campaign. Null for about 26% of
+          sessions. Includes self-referrals and obfuscated values such as
+          '<Other>', so treat channel comparisons with care.
+
+      - name: session_medium
+        description: >
+          Traffic medium of the session, from the same event as
+          session_source.
+
+      - name: session_campaign
+        description: >
+          Campaign of the session, from the same event as session_source.
+
+      # Device and location
+      - name: device_category
+        description: Device type, one of desktop, mobile or tablet.
+
+      - name: device_os
+        description: Operating system of the device.
+
+      - name: browser
+        description: Browser used.
+
+      - name: country
+        description: Country the session came from, based on IP address.
+
+      # Funnel steps. A step counts if the event occurred in the session,
+      # whether or not the earlier steps did.
+      - name: has_view_item
+        description: True if the session has at least one view_item event.
+        data_tests:
+          - not_null
+
+      - name: has_add_to_cart
+        description: True if the session has at least one add_to_cart event.
+        data_tests:
+          - not_null
+
+      - name: has_begin_checkout
+        description: True if the session has at least one begin_checkout event.
+        data_tests:
+          - not_null
+
+      - name: has_purchase
+        description: True if the session has at least one purchase event.
+        data_tests:
+          - not_null
+
+      # Purchases
+      - name: purchase_count
+        description: >
+          Number of purchase events in the session. A purchase is an event
+          named 'purchase'; transaction_id is not used because it is missing
+          on some purchases.
+
+      - name: purchase_revenue_usd
+        description: >
+          Total purchase revenue of the session in US dollars. Zero for
+          sessions without a purchase.
+        data_tests:
+          - not_null
