@@ -1,0 +1,154 @@
+version: 2
+
+# Documentation and tests for the staging models.
+# Each data test compiles to a query that returns the rows breaking the rule;
+# the test passes when that query returns no rows.
+
+models:
+  - name: stg_events
+    description: >
+      One row per GA4 event, with the nested event_params record flattened
+      into columns. Covers 2020-11-01 to 2021-01-31. All downstream models
+      read from this table instead of the raw export.
+
+    columns:
+      # Keys
+      - name: event_key
+        description: >
+          Primary key. MD5 hash of user_pseudo_id, the raw event timestamp
+          (microseconds) and event_name. GA4 has no event id of its own.
+        data_tests:
+          - unique
+          - not_null
+
+      - name: session_key
+        description: >
+          Identifies a session: user_pseudo_id and ga_session_id joined with
+          a dash. ga_session_id alone is only unique within one user.
+        data_tests:
+          - not_null
+
+      - name: user_pseudo_id
+        description: >
+          Anonymous id GA4 assigns to a browser. This is the "user" in this
+          project, since the dataset has no logged-in user id.
+        data_tests:
+          - not_null
+
+      # What happened and when
+      - name: event_name
+        description: >
+          Type of event, for example page_view, view_item, add_to_cart,
+          begin_checkout or purchase.
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Date of the event, as exported by GA4.
+        data_tests:
+          - not_null
+
+      - name: event_at
+        description: Timestamp of the event in UTC.
+        data_tests:
+          - not_null
+
+      # Session
+      - name: ga_session_id
+        description: >
+          Session id from event_params. Unique only within a user, so use
+          session_key to identify a session.
+
+      - name: ga_session_number
+        description: >
+          Which session this is for the user, counting from 1. A value of 1
+          means the user's first session.
+
+      # Page
+      - name: page_location
+        description: Full URL of the page where the event happened.
+
+      - name: page_title
+        description: Title of the page where the event happened.
+
+      - name: page_referrer
+        description: >
+          URL of the previous page. Null when there was none or it was not
+          recorded.
+
+      # Engagement
+      - name: is_session_engaged
+        description: >
+          True when GA4 flagged the session as engaged at the time of the
+          event. Null when the event does not carry the session_engaged
+          param (about 7% of events).
+
+      - name: engagement_time_msec
+        description: >
+          Milliseconds the page was in focus since the previous event. Null
+          on events that do not report it.
+
+      - name: percent_scrolled
+        description: >
+          How far down the page the user scrolled, in percent. Only filled
+          on scroll events.
+
+      - name: is_entrance
+        description: >
+          True for the first page view of a session. Only filled on
+          page_view events.
+
+      # Traffic source of the session
+      - name: event_source
+        description: >
+          Traffic source of the session, for example google. Filled on only
+          some events (about 28%).
+
+      - name: event_medium
+        description: >
+          Traffic medium of the session, for example organic or cpc. Filled
+          on only some events.
+
+      - name: event_campaign
+        description: Campaign of the session. Filled on only some events.
+
+      # Traffic source that first brought the user
+      - name: first_touch_source
+        description: >
+          Source that first brought the user to the site. Same value on all
+          of a user's events.
+
+      - name: first_touch_medium
+        description: Medium that first brought the user to the site.
+
+      - name: first_touch_campaign
+        description: Campaign that first brought the user to the site.
+
+      - name: user_first_touch_at
+        description: Timestamp (UTC) of the user's first visit.
+
+      # Device and location
+      - name: device_category
+        description: Device type, one of desktop, mobile or tablet.
+
+      - name: device_os
+        description: Operating system of the device.
+
+      - name: browser
+        description: Browser used.
+
+      - name: country
+        description: Country the event came from, based on IP address.
+
+      # Ecommerce
+      - name: transaction_id
+        description: >
+          Order id. Null on non-purchase events and also on about 16% of
+          purchase events, so do not use it to count purchases; use
+          event_name = 'purchase' instead.
+
+      - name: purchase_revenue_usd
+        description: Revenue of the purchase in US dollars. Only filled on purchase events.
+
+      - name: total_item_quantity
+        description: Total number of items in the event's cart or order.
