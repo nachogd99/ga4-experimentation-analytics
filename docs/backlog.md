@@ -7,7 +7,6 @@ Format: - [tag] short description (why it matters, in one line)
 
 ## Open
 
-- [later] Deploy the Streamlit app to Streamlit Community Cloud and link it from the README (a live link is easier for a reviewer than cloning; the app reads only committed CSV files, so it needs no credentials)
 - [later] Partition `stg_events` by `event_date` if the project moves off the sandbox (not possible now: the sandbox's 60-day partition expiry would drop all 2020-21 partitions)
 - [later] Add `cluster_by: event_name` to `stg_events` (would cut bytes scanned by funnel queries; the 1.4 GB table is cheap enough without it)
 - [later] Add the params left out of `stg_events` if a question needs them: `coupon`, `payment_type`, `shipping_tier`, `promotion_name`, `link_*` (skipped as low value for funnel and experiment work)
@@ -39,3 +38,4 @@ Format: - [tag] short description (why it matters, in one line)
 - [step 8] State that CUPED barely reduces variance. Done: the readout has its own section with the measured figures (0.65%, 1.02% and 0.04% of variance removed) and the cause (3.4% of users active in December).
 - [step 8] Final README: update the stale counts in "How to run it". Done: the final README states 7 tables and 69 dbt tests, and adds the 56 Python tests, the analysis scripts and the app. Every path and image it references was checked to exist.
 - [step 8] Retake the lineage screenshot. Done on 2026-10-03: `docs/screenshots/lineage.png` now shows all 7 models, matching the diagram in the README.
+- [later] Deploy the Streamlit app to Streamlit Community Cloud. Done on 2026-10-03 at the owner's request: live at https://ga4-experimentation-analytics.streamlit.app/, built from `app/requirements.txt` (5 packages) on Python 3.11, and linked from the README.

@@ -8,6 +8,9 @@ An analytics project on Google Analytics 4 e-commerce data, in two parts:
    statistics written out by hand and validated with an A/A test and a planted
    effect.
 
+**Live app:** https://ga4-experimentation-analytics.streamlit.app/
+(it may take half a minute to wake up if nobody has opened it recently)
+
 > **The experiment is simulated on real traffic.** The Google Merchandise Store
 > did not run this test. Users are split by hashing their id and nothing was
 > changed for either group. Any treatment effect shown is injected in Python
@@ -191,8 +194,9 @@ and chi-square distributions.
 ## The app
 
 A Streamlit app presents the funnel, retention, the experiment and its
-validation. It reads small CSV files committed to this repository, so it runs
-without BigQuery credentials.
+validation. It is deployed at
+**https://ga4-experimentation-analytics.streamlit.app/**. It reads small CSV
+files committed to this repository, so it runs without BigQuery credentials.
 
 ![Funnel tab](docs/screenshots/app_funnel.png)
 
@@ -239,8 +243,9 @@ without BigQuery credentials.
 
 ## How to run it
 
-To see the app only, steps 1 and 7 are enough: it reads files that are already
-in the repository.
+The app is already [live](https://ga4-experimentation-analytics.streamlit.app/),
+so nothing needs installing to see it. To run it locally, steps 1 and 7 are
+enough: it reads files that are already in the repository.
 
 You need Python 3.11. For the pipeline you also need the
 [gcloud CLI](https://cloud.google.com/sdk/docs/install) and a Google Cloud
