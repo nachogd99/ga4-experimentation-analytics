@@ -7,8 +7,8 @@ Format: - [tag] short description (why it matters, in one line)
 
 ## Open
 
-- [step 7] Decide how the A/A harness reproduces `FARM_FINGERPRINT` for 1000 salts: run the assignment in BigQuery from Python, or use a farmhash library (not in requirements.txt; results must match `exp_assignments`)
 - [step 7] Choose the injected lift with the minimum detectable effect in mind: with about 47k users per group and a 1.13% baseline, the MDE is 17.8% relative per `minimum_detectable_effect`; power is 36% for a +10% lift, 88% for +20% and 97% for +25% (a smaller injected lift would usually go undetected, which would look like a pipeline failure when it is only low power)
+- [step 8] Report the A/A test in the readout with its follow-up, not only the headline: the official 1,000 salts gave 44 false alarms (4.4%, inside the 3.65% to 6.35% range set beforehand), but the z-score spread was 0.949 against an expected 1 (p = 0.022); 4,000 fresh salts then gave 5.08% and a spread of 0.992 (showing the check that was unplanned, and how it was resolved, is more credible than a clean headline)
 - [step 8] State in the readout that CUPED barely reduces variance here: only 3.4% of eligible users have December activity; measured with `cuped_adjust`, the variance removed is 0.6% for conversion with the December purchase flag, 1.0% with December sessions, and 0.04% for revenue, so intervals narrow by 0.5% at most (a reader would otherwise expect CUPED to help)
 - [step 8] Run the README's "How to run it" steps on a fresh clone before the final README (they were written from this machine's setup and never run end to end)
 - [step 8] Rebuild the dbt tables right before creating the cached exports for the app (the tables may have expired by then)
@@ -33,4 +33,5 @@ Format: - [tag] short description (why it matters, in one line)
 - [step 5] Use the same purchase definition in `exp_user_metrics`. Done: purchases come from `int_sessions.purchase_count`, which counts events named `purchase`; January revenue in the table ($57,350) matches `int_sessions`.
 - [step 6] Decide the SRM alert threshold before running the check. Done: `srm_check` defaults to 0.001, the usual choice for SRM. With salt `exp1` the split (47,087 vs 47,701) gives p = 0.046, so no alarm; the salt was kept.
 - [step 6] Base the power analysis on January's own conversion rate. Done: the baseline is January's per-user rate, 1.128% (1,069 of 94,788), giving an MDE of 17.8% relative with 47,087 users per group.
+- [step 7] Decide how the A/A harness reproduces `FARM_FINGERPRINT` for 1000 salts. Done: BigQuery hashes every user with every salt in one query (`analysis/data.py`, 2.7 MB scanned) and returns totals per salt; the statistics run in Python. Salt `exp1` reproduces `exp_assignments` exactly, and no farmhash library is needed.
 - [step 6] The A/A harness needs the owner's `analysis/stats.py` functions before it can run. Done: roadmap reordered in CLAUDE.md on 2026-10-03, so stats.py is now step 6 and the A/A test and lift injection are step 7. Open items were retagged to match.
