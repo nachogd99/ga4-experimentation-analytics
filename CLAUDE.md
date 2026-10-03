@@ -20,8 +20,9 @@ and stop after each step so the owner can review.
 - Materialize staging as tables so we don't rescan raw data repeatedly
 - Every mart model gets dbt tests (unique, not_null, relationships)
 - Never commit credentials, profiles.yml, or .env files
-- Do NOT write the statistical functions in analysis/stats.py;
-  the owner writes those. You may write tests for them and review them.
+- Claude writes analysis/stats.py one function at a time and explains each
+  in detail; the owner must understand every line before moving on.
+  Every function gets tests.
 - Work in small steps; stop after each step so the owner can review and commit
 - When you notice something worth doing later, don't do it now and don't
   only mention it in chat: append it to docs/backlog.md tagged with the
@@ -48,8 +49,8 @@ Weekend 1, product analytics:
 Weekend 2, experimentation:
 5. Simulated experiment: hash-based assignment on user_pseudo_id,
    experiment period Jan 2021, pre-period Dec 2020 (for CUPED)
-6. analysis/stats.py (owner writes it): power analysis, two-proportion
-   z-test, SRM check, CUPED
+6. analysis/stats.py (Claude writes it, explaining each function): power
+   analysis, two-proportion z-test, SRM check, CUPED
 7. A/A test first to validate the pipeline, then inject a known lift
 8. Streamlit app, experiment_readout.md, final README
 The experiment is simulated on real traffic; always state this openly.
@@ -67,7 +68,7 @@ The experiment is simulated on real traffic; always state this openly.
   always contain real, unmodified data
 - A/A test: rerun assignment with many salts (e.g. 1000), check that
   roughly 5% of runs give p < 0.05
-- Claude may write the simulation harness, but it must call the owner's
+- Claude may write the simulation harness, but it must call the
   functions in analysis/stats.py
 
 ## Data scope
@@ -76,7 +77,7 @@ The experiment is simulated on real traffic; always state this openly.
 
 ## Repo structure
 - ga4_analytics/: dbt project
-- analysis/: stats.py (owner), simulations, tests
+- analysis/: stats.py, simulations, tests
 - app/: Streamlit app (reads from small cached exports, since sandbox
   tables expire after 60 days)
 - docs/: experiment_readout.md, screenshots
